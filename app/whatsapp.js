@@ -62,7 +62,7 @@ function startWhatsApp() {
 
       // Verifica se já é um contato salvo
       const contato = await client.getContactById(numero);
-      // if (contato.isMyContact) return;
+      if (contato.isMyContact && msg.body !== "--test") return;
 
       // Inicializa fila se não existir
       if (!filaMensagens[numero]) {
