@@ -7,32 +7,17 @@ app.use(bodyParser.json());
 
 // Webhook principal
 app.post("/webhook", async (req, res) => {
-  const payload = req.body;
+ 
+  const { message, number } = req.body;
 
-  // Ignora mensagens que não são de saída
-  if (payload.message_type !== "outgoing") {
-    return res.sendStatus(200);
-  }
-
-  // Ignora mensagens privadas (ex: anotações internas dos agentes)
-  if (payload.private === true) {
-    return res.sendStatus(200);
-  }
-
-  const conversation = payload.conversation;
-  const whatsappNumber =
-    conversation.meta?.sender?.phone_number ||
-    conversation.meta?.sender?.identifier;
-  const messageContent = payload.content;
-
-  if (whatsappNumber && messageContent) {
-    const chatId = `${whatsappNumber.replace("+", "")}@c.us`;
+  if (message && number) {
+    const chatId = `${number.replace("+", "")}`;
 
     try {
       const client = getClient();
 
       if (client) {
-        await client.sendMessage(chatId, messageContent);
+        await client.sendMessage(chatId, message);
       } else {
         console.error("WhatsApp client is not ready yet.");
       }

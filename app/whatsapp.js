@@ -1,41 +1,33 @@
 require("dotenv").config();
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
-const sqlite3 = require("sqlite3").verbose();
-const axios = require("axios");
-const path = require("path");
+// const path = require("path");
 
 // Exported client for integration with other modules
 let client = null;
 
-// Initialize SQLite database
-const db = new sqlite3.Database(path.resolve(__dirname, "../db/contacts.db"));
-db.run(`CREATE TABLE IF NOT EXISTS contacts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  number TEXT UNIQUE,
-  contact_id TEXT,
-  conversation_id TEXT
-)`);
+async function sendMessageToN8n(msg) {
 
-// Send incoming WhatsApp message to Chatwoot
-async function sendMessageToChatwoot(contactId, conversationId, content) {
   try {
-    await axios.post(
-      `${process.env.CHATWOOT_URL}/api/v1/accounts/${process.env.CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/messages`,
+    const sendToWebhook = await fetch(
+      // process.env.N8N_WEBHOOK_URL,
+      "http://localhost:5678/webhook/webhook",
       {
-        content: content,
-        message_type: "incoming",
-        private: false,
-      },
-      {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
-          api_access_token: process.env.CHATWOOT_API_TOKEN,
         },
+        body: JSON.stringify(msg),
       }
     );
+
+    if (!sendToWebhook.ok) {
+      console.log("Erro ao enviar mensagem ao n8n. Motivo provável: conexão com webhook falhou.");
+      return
+    }
+
   } catch (e) {
-    console.error("Error sending message to Chatwoot:", e.message);
+    console.error("Error ao enviar mensagem ao n8n:", e.message);
   }
 }
 
@@ -52,73 +44,69 @@ function startWhatsApp() {
     console.log("Connected to WhatsApp!");
   });
 
+  // console.log("Funções disponíveis no client: \n", Object.getOwnPropertyNames(Object.getPrototypeOf(client)));
+
+  const filaMensagens = {};
+  const TEMPO_AGUARDAR = 12000;
+
   client.on("message", async (msg) => {
-    const rawNumber = msg.from;
-    const messageText = msg.body;
-    const numberE164 = `+${rawNumber.replace("@c.us", "")}`;
 
-    db.get(
-      "SELECT * FROM contacts WHERE number = ?",
-      [numberE164],
-      async (err, row) => {
-        if (row) {
-          await sendMessageToChatwoot(
-            row.contact_id,
-            row.conversation_id,
-            messageText
-          );
-        } else {
-          try {
-            const contact = await axios.post(
-              `${process.env.CHATWOOT_URL}/api/v1/accounts/${process.env.CHATWOOT_ACCOUNT_ID}/contacts`,
-              {
-                inbox_id: process.env.CHATWOOT_INBOX_ID,
-                name: numberE164,
-                identifier: numberE164,
-                phone_number: numberE164,
-                custom_attributes: { whatsapp: true },
-              },
-              {
-                headers: {
-                  "Content-Type": "application/json",
-                  api_access_token: process.env.CHATWOOT_API_TOKEN,
-                },
-              }
-            );
+    try {
 
-            console.log(`Contact created: ${JSON.stringify(contact.data)}`);
+      if (msg.fromMe) return;
+      if (!msg.from.endsWith('@c.us')) return;
+      if (msg.type !== 'chat') return;
+      if (!msg.body) return;
 
-            const contactId = contact.data.payload.contact.id;
+      const numero = msg.from;
 
-            const conversation = await axios.post(
-              `${process.env.CHATWOOT_URL}/api/v1/accounts/${process.env.CHATWOOT_ACCOUNT_ID}/conversations`,
-              {
-                source_id: numberE164,
-                inbox_id: process.env.CHATWOOT_INBOX_ID,
-                contact_id: contactId,
-              },
-              {
-                headers: {
-                  "Content-Type": "application/json",
-                  api_access_token: process.env.CHATWOOT_API_TOKEN,
-                },
-              }
-            );
+      // Verifica se já é um contato salvo
+      const contato = await client.getContactById(numero);
+      // if (contato.isMyContact) return;
 
-            const conversationId = conversation.data.id;
-
-            db.run(
-              "INSERT INTO contacts (number, contact_id, conversation_id) VALUES (?, ?, ?)",
-              [numberE164, contactId, conversationId]
-            );
-
-            await sendMessageToChatwoot(contactId, conversationId, messageText);
-          } catch (e) {
-            console.error("Error creating contact/conversation:", e.message);
-          }
-        }
+      // Inicializa fila se não existir
+      if (!filaMensagens[numero]) {
+        console.log("fila de mensagens iniciada");
+        filaMensagens[numero] = {
+          mensagens: [],
+          timeout: null
+        };
       }
-    );
+
+      // Armazena a mensagem recebida
+      filaMensagens[numero].mensagens.push(msg.body);
+
+      // Reseta o timer, se já estava contando
+      if (filaMensagens[numero].timeout) {
+        console.log("chegou mais uma mensagem, timeout reiniciado")
+        clearTimeout(filaMensagens[numero].timeout);
+      }
+
+      // Inicia/reinicia o timer
+      filaMensagens[numero].timeout = setTimeout(async () => {
+        const mensagemFinal = filaMensagens[numero].mensagens.join(' ').trim();
+        delete filaMensagens[numero]; // limpa da fila
+
+        // Marcar como lido
+        await client.sendSeen(numero);
+
+        
+        const payload = {
+          message: mensagemFinal,
+          from: msg.from,
+          fromMe: msg.id.fromMe,
+          timestamp: msg.timestamp,
+          fromName: msg.notifyName
+        }
+        
+        await sendMessageToN8n(payload);
+
+      }, TEMPO_AGUARDAR);
+
+
+    } catch (e) {
+      console.error("Error creating contact/conversation:", e.message);
+    }
   });
 
   client.initialize();
