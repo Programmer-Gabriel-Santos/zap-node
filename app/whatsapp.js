@@ -11,7 +11,8 @@ async function sendMessageToN8n(msg) {
   try {
     const sendToWebhook = await fetch(
       // process.env.N8N_WEBHOOK_URL,
-      "http://localhost:5678/webhook/webhook",
+      // "http://localhost:5678/webhook/webhook",
+      "http://n8n:5678/webhook/webhook",
       {
         method: "POST",
         headers: {
@@ -35,7 +36,11 @@ async function sendMessageToN8n(msg) {
 function startWhatsApp() {
   client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: { headless: true, args: ["--no-sandbox"] },
+    puppeteer: {
+      executablePath: '/usr/bin/chromium',
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
   });
 
   client.on("qr", (qr) => qrcode.generate(qr, { small: true }));
@@ -62,7 +67,7 @@ function startWhatsApp() {
 
       // Verifica se já é um contato salvo
       const contato = await client.getContactById(numero);
-      if (contato.isMyContact && msg.body !== "--test") return;
+      if (contato.isMyContact && !msg.body.startsWith('--ia')) return;
 
       // Inicializa fila se não existir
       if (!filaMensagens[numero]) {
@@ -90,7 +95,7 @@ function startWhatsApp() {
         // Marcar como lido
         await client.sendSeen(numero);
 
-        
+
         const payload = {
           message: mensagemFinal,
           from: msg.from,
@@ -98,7 +103,7 @@ function startWhatsApp() {
           timestamp: msg.timestamp,
           fromName: msg.notifyName
         }
-        
+
         await sendMessageToN8n(payload);
 
       }, TEMPO_AGUARDAR);
