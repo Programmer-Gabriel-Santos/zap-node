@@ -3,3 +3,7 @@ npm-debug.log
 yarn-error.log
 .env
 .DS_Store
+.wwebjs_auth
+.wwebjs_cache
+wwebjs_auth
+wwebjs_cache
