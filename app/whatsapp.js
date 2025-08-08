@@ -1,10 +1,11 @@
 require("dotenv").config();
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
-// const path = require("path");
+const fs = require('fs');
 
 // Exported client for integration with other modules
 let client = null;
+let currentQR = null; // Variável global para armazenar o QR code atual
 
 async function sendMessageToN8n(msg) {
 
@@ -34,16 +35,42 @@ async function sendMessageToN8n(msg) {
 
 // Start WhatsApp client
 function startWhatsApp() {
+  console.log("Iniciando WhatsApp client...");
+
   client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+      dataPath: "/app/"
+    }),
     puppeteer: {
-      executablePath: '/usr/bin/chromium',
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-zygote',
+        '--single-process'
+      ]
     }
   });
 
-  client.on("qr", (qr) => qrcode.generate(qr, { small: true }));
+
+  client.on("qr", (qr) => {
+    console.log("QR Code recebido! Gerando...");
+    currentQR = qr; // Armazena o QR code atual
+
+    try {
+      // Tenta exibir no terminal
+      qrcode.generate(qr, { small: true });
+
+      // Também salva em arquivo para acesso externo
+      qrcode.toString(qr, { type: 'terminal' });
+
+
+    } catch (error) {
+      console.error("Erro ao gerar QR code:", error);
+    }
+  });
 
   client.on("ready", () => {
     console.log("Connected to WhatsApp!");
@@ -63,12 +90,17 @@ function startWhatsApp() {
       if (msg.type !== 'chat') return;
       if (!msg.body) return;
 
+      
       const numero = msg.from;
-
+      
       // Verifica se já é um contato salvo
       const contato = await client.getContactById(numero);
-      if (contato.isMyContact && !msg.body.startsWith('--ia')) return;
+      if (contato.isMyContact && !msg.body.startsWith('--ia')) {
+        console.log("Mensagem de contato salvo: ", msg.body);
+        return};
 
+      console.log("Mensagem recebida:", msg.body);
+      
       // Inicializa fila se não existir
       if (!filaMensagens[numero]) {
         console.log("fila de mensagens iniciada");
@@ -114,11 +146,12 @@ function startWhatsApp() {
     }
   });
 
-  client.initialize();
+  console.log("Inicializando WhatsApp client...");
 }
 
 // Export functions and WhatsApp client instance
 module.exports = {
   startWhatsApp,
   getClient: () => client,
+  getCurrentQR: () => currentQR, // Função para obter o QR code atual
 };

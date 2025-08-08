@@ -6,7 +6,8 @@ const app = express();
 app.use(bodyParser.json());
 
 // Webhook principal
-app.get("/", (req, res) => {
+app.post("/test", (req, res) => {
+  console.log("testando comunicação com o n8n: \n ", req.body); 
   res.send("WhatsApp Webhook funcionando!");
 })
 app.post("/webhook", async (req, res) => {
