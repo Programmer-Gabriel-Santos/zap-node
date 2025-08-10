@@ -5,6 +5,7 @@ const qrcode = require("qrcode-terminal");
 
 // Exported client for integration with other modules
 let client = null;
+let currentQR = null; // Variável para armazenar o QR code atual
 
 async function sendMessageToN8n(msg) {
 
@@ -43,10 +44,14 @@ function startWhatsApp() {
     }
   });
 
-  client.on("qr", (qr) => qrcode.generate(qr, { small: true }));
+  client.on("qr", (qr) => {
+    currentQR = qr; // Armazena o QR code atual
+    qrcode.generate(qr, { small: true }); // Mantém a exibição no terminal
+  });
 
   client.on("ready", () => {
     console.log("Connected to WhatsApp!");
+    currentQR = null; // Limpa o QR code quando conectado
   });
 
   // console.log("Funções disponíveis no client: \n", Object.getOwnPropertyNames(Object.getPrototypeOf(client)));
@@ -121,4 +126,5 @@ function startWhatsApp() {
 module.exports = {
   startWhatsApp,
   getClient: () => client,
+  getCurrentQR: () => currentQR, // Nova função para acessar o QR code atual
 };

@@ -32,6 +32,8 @@ services:
       context: ./
       dockerfile: Dockerfile
     platform: linux/arm64
+    volumes:
+      - app_data:/app
     ports:
       - "3000:3000"
     extra_hosts:
@@ -41,3 +43,4 @@ services:
 
 volumes:
   n8n_data:
+  app_data:

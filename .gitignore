@@ -33,3 +33,5 @@ Thumbs.db
 /db/
 *.sqlite
 *.db
+
+ssh-key-2025-07-28.key
