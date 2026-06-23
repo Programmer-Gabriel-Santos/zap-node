@@ -129,4 +129,4 @@ zapnode.codigofonte.tv/
 
 ---
 
-**⚠️ Lembrete:** Este é um protótipo experimental. Use apenas para testes e desenvolvimento. Não recomendado para produção sem os devidos aprimoramentos de segurança e estabilidade.
+**⚠️** Este é um protótipo experimental. Não recomendado para produção sem os devidos aprimoramentos de segurança e estabilidade.
