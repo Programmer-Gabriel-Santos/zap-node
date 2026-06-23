@@ -127,12 +127,6 @@ zapnode.codigofonte.tv/
 - Logs limitados para debugging
 - Falta validação de dados de entrada
 
-## 👨‍💻 Autor
-
-Gabriel Froes (para o Código Fonte TV)
-
-- Video: [ZapNode - Integração WhatsApp + Chatwoot](https://www.youtube.com/@codigofontetv)
-
 ---
 
 **⚠️ Lembrete:** Este é um protótipo experimental. Use apenas para testes e desenvolvimento. Não recomendado para produção sem os devidos aprimoramentos de segurança e estabilidade.
